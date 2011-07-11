@@ -6,11 +6,11 @@ import random
 
 from lib.processpool import ProcessPool
 
-def my_process_func(proc_index, name):
+def my_process_func(proc_index, name, iterations, sleep_interval):
     try:
         print('Inside my_process_func {0}'.format(proc_index))
-        for i in range(5):
-            time.sleep(2)
+        for i in range(iterations):
+            time.sleep(sleep_interval)
             print('{0} says "Hi!"'.format(name))
         
     except KeyboardInterrupt:
@@ -21,12 +21,19 @@ def my_process_func(proc_index, name):
 def main():
     
     # Initialize pool
-    pool = ProcessPool()
+    pool = ProcessPool(max_running_procs=2)
     
     # Assign some work to the pool
     names = ['Bob', 'Jane', 'Jeremy', 'Nancy', 'Susan', 'Aaron', 'Toby', 'Tom']
     for i in range(10):
-        pool.apply_async(func=my_process_func, args=(i, random.choice(names)))
+        pool.apply_async(
+            func=my_process_func,
+            kwargs={
+                'proc_index': i,
+                'name': random.choice(names),
+                'iterations': 5,
+                'sleep_interval': 2
+            })
         
     try:
         while True:
