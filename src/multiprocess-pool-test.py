@@ -24,14 +24,15 @@ def my_process_func(proc_index, name, iterations, sleep_interval):
         
     print('{0} says "Good-bye"'.format(name))
 
-def main(initial_processes=10,
-         chance_to_add=3,
+def main(max_running_processes=3,
+         initial_processes=20,
+         chance_to_add=5,
          main_loop_interval=2,
          max_child_iterations=10,
          max_child_loop_interval=5):
     
     # Initialize pool
-    pool = ProcessPool(max_running_procs=2)
+    pool = ProcessPool(max_running_procs=max_running_processes)
     
     # Assign some work to the pool
     names = ['Bob', 'Jane', 'Jeremy', 'Nancy', 'Susan', 'Aaron', 'Toby', 'Tom',
@@ -50,7 +51,7 @@ def main(initial_processes=10,
                 'proc_index': index,
                 'name': name,
                 'iterations': random.choice(range(max_child_iterations)),
-                'sleep_interval': random.choice([round(x * 0.1, 1) for x in range(2, interval_range_top, 2)])
+                'sleep_interval': random.choice([round(x * 0.1, 1) for x in range(2, interval_range_top, 5)])
             })
         
     start_time = time.time()

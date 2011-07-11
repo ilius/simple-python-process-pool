@@ -14,8 +14,7 @@ class ProcessPool(object):
         self.__running = []
         self.__pending_lock = RLock()
         self.__running_lock = RLock()
-        self.__manager_timer = Timer(self.__check_interval, self.__manage)
-        self.__manager_timer.start()
+        Timer(self.__check_interval, self.__manage).start()
     
     def __manage(self):
         with self.__running_lock:
@@ -24,8 +23,7 @@ class ProcessPool(object):
         
         if not self.__closed:
             # Restart timer
-            self.__manager_timer = Timer(self.__check_interval, self.__manage)
-            self.__manager_timer.start()
+            Timer(self.__check_interval, self.__manage).start()
     
     def apply_async(self, func, name=None, args=tuple(), kwargs={}):
         with self.__pending_lock:
