@@ -92,9 +92,36 @@ def main(max_running_processes=3,
     except KeyboardInterrupt:
         print('\nmain caught KeyboardInterrupt')
         
-    pool.close()
+    pool.close()    
     pool.join()
 
+def main2():
+    
+    def _return_tuple(a='abc', b='def', c='ghi'):
+        return (a, b, c)
+    
+    def _on_proc_complete(a):
+        print('_on_proc_complete got: {0}'.format(a))
+    
+    pool = ProcessPool()
+    pool.apply_async(range, args=(0, 101, 20), callback=_on_proc_complete)
+    pool.apply_async(_return_tuple, kwargs={ 'a': 123, 'b': 456, 'c': 789 }, callback=_on_proc_complete)
+    pool.wait()
+    
+    pool.close()
+    pool.join()
+    
+def main3():
+    try:
+        pool = ProcessPool()
+        pool.close()
+        pool.apply_async(lambda x: None)
+        pool.join()
+    except AssertionError:
+        print('Handled expected exception in main3')
+
 if __name__ == '__main__':
-    main()
+    main(initial_processes=10, max_child_iterations=5)
+    main2()
+    main3()
     

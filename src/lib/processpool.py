@@ -1,8 +1,8 @@
 
 from collections import deque
 from threading import RLock, Timer
-from multiprocessing import Process
-import sys
+from multiprocessing import Process, Queue
+import time
 
 class ProcessPool(object):
     
@@ -16,43 +16,6 @@ class ProcessPool(object):
         self.__pending_lock = RLock()
         self.__running_lock = RLock()
         Timer(self.__check_interval, self.__manage).start()
-    
-    def __manage(self):
-        with self.__running_lock:
-            [self.__running.remove(i) for i in self.__running if not i.is_alive()]
-            self.__try_start()
-        
-        if not self.is_closed:
-            # Restart timer
-            Timer(self.__check_interval, self.__manage).start()
-    
-    def apply_async(self, func, name=None, args=tuple(), kwargs={}):
-        assert not self.is_closed
-            
-        with self.__pending_lock:
-            self.__pending.append({ 'target': func, 'name': name, 'args': args, 'kwargs': kwargs })
-            
-        self.__try_start()
-    
-    def close(self):
-        """
-        Marks the pool as closed in order to prevent further processes from
-        starting.
-        """
-        self.__closed = True
-    
-    def join(self):
-        """
-        Join the current running process
-        """
-        try:
-            with self.__running_lock:
-                for i in self.__running:
-                    print('Joining {0}'.format(i))
-                    i.join()
-        except KeyboardInterrupt:
-            # User probably got impatient and pressed Ctrl+C again
-            pass
     
     @property
     def is_closed(self):
@@ -81,8 +44,70 @@ class ProcessPool(object):
     def count_running(self):
         with self.__running_lock:
             return len(self.__running)
+            
+    def __manage(self):
+        with self.__running_lock:
+            for_removal = [i for i in self.__running if not i['process'].is_alive()]
+            for i in for_removal:
+                if i['callback']:
+                    result = i['queue'].get()
+                    i['callback'](result)
+                    
+                self.__running.remove(i)
+            self.__try_start()
+        
+        if not self.is_closed:
+            # Restart timer
+            Timer(self.__check_interval, self.__manage).start()
+    
+    def apply_async(self, func, name=None, args=tuple(), kwargs={}, callback=None):
+        assert not self.is_closed
+            
+        with self.__pending_lock:
+            self.__pending.append({
+                'target': func,
+                'name': name,
+                'args': args,
+                'kwargs': kwargs,
+                'callback': callback
+            })
+            
+        self.__try_start()
+    
+    def close(self):
+        """
+        Marks the pool as closed in order to prevent further processes from
+        starting.
+        """
+        self.__closed = True
+    
+    def join(self):
+        """
+        Join the current running process
+        """
+        try:
+            with self.__running_lock:
+                for i in self.__running: i['process'].join()
+        except KeyboardInterrupt:
+            # User probably got impatient and pressed Ctrl+C again
+            pass
+        
+    def wait(self):
+        while self.has_pending_processes:
+            time.sleep(1)
     
     def __try_start(self):
+        
+        def _wrapper(func, queue):
+            def _inner(*args, **kwargs):
+                try:
+                    result = func(*args, **kwargs)
+                    queue.put(result)
+                finally:
+                    queue.close()
+
+            return _inner
+        
         if self.is_closed and not self.always_finish:
             return
         
@@ -91,11 +116,19 @@ class ProcessPool(object):
                 while self.has_pending_processes and not self.is_full:
                     # Create a new Process
                     next = self.__pending.pop()
-                    p = Process(target=next['target'], args=next['args'], kwargs=next['kwargs'])
+                    q = Queue()
+                    p = Process(
+                        target=_wrapper(func=next['target'], queue=q),
+                        args=next['args'],
+                        kwargs=next['kwargs'])
                     
                     if not next['name'] is None:
                         p.name = next['name']
                     
-                    self.__running.append(p)
+                    self.__running.append({
+                        'process': p,
+                        'queue': q,
+                        'callback': next['callback']
+                    })
                     p.start()
                     
