@@ -8,44 +8,85 @@ from lib.processpool import ProcessPool
 
 def my_process_func(proc_index, name, iterations, sleep_interval):
     try:
-        print('Inside my_process_func {0}'.format(proc_index))
+        print('Inside my_process_func {0}, name={1}, iterations={2}, sleep interval={3}'.format(proc_index, name, iterations, sleep_interval))
         for i in range(iterations):
             time.sleep(sleep_interval)
             print('{0} says "Hi!"'.format(name))
         
     except KeyboardInterrupt:
-        print('{0} says "I see KeyboardInterrupt!"'.format(name))
-            
+        addl_sleep = random.choice([3,6,9])
+        print('{0} says "I see KeyboardInterrupt! Sleeping for {1} more seconds"'.format(name, addl_sleep))
+        try:
+            time.sleep(addl_sleep)
+        except KeyboardInterrupt:
+            # User got impatient and pressed Ctrl+C again
+            pass
+        
     print('{0} says "Good-bye"'.format(name))
 
-def main():
+def main(initial_processes=10,
+         chance_to_add=3,
+         main_loop_interval=2,
+         max_child_iterations=10,
+         max_child_loop_interval=5):
     
     # Initialize pool
     pool = ProcessPool(max_running_procs=2)
     
     # Assign some work to the pool
-    names = ['Bob', 'Jane', 'Jeremy', 'Nancy', 'Susan', 'Aaron', 'Toby', 'Tom']
-    for i in range(10):
+    names = ['Bob', 'Jane', 'Jeremy', 'Nancy', 'Susan', 'Aaron', 'Toby', 'Tom',
+             'Calvin', 'David', 'Eric', 'Frank', 'Gary', 'Susan', 'Alice',
+             'Betty', 'Helen']
+    
+    index = 0
+    interval_range_top = max_child_loop_interval * 10 + 1
+    for i in range(initial_processes):
+        index = i
+        name = random.choice(names)
         pool.apply_async(
             func=my_process_func,
+            name='{0}-{1}'.format(name, index),
             kwargs={
-                'proc_index': i,
-                'name': random.choice(names),
-                'iterations': 5,
-                'sleep_interval': 2
+                'proc_index': index,
+                'name': name,
+                'iterations': random.choice(range(max_child_iterations)),
+                'sleep_interval': random.choice([round(x * 0.1, 1) for x in range(2, interval_range_top, 2)])
             })
         
+    start_time = time.time()
+    r = range(chance_to_add)
+    s = range(100)
+    
     try:
         while True:
-            time.sleep(2)
+            index = index + 1 if index > 0 else 0
+            if random.choice(s) in r:
+                print('Adding another process')
+                name = random.choice(names)
+                pool.apply_async(
+                    func=my_process_func,
+                    name='{0}-{1}'.format(name, index),
+                    kwargs={
+                        'proc_index': index,
+                        'name': name,
+                        'iterations': random.choice(range(15)),
+                        'sleep_interval': random.choice([round(x * 0.1, 1) for x in range(2, 100, 2)])
+                    })
+            
+            pending = pool.count_pending
+            
+            if 1 > pending:
+                break
             
             print("""\
-  main looping -- {0}
-    processes queued: {1}
-    process running?: {2}""".format(
-                time.time(),
+    main looping -- {0} sec
+        processes queued: {1}
+        processes running: {2}""".format(
+                time.time() - start_time,
                 pool.count_pending,
                 pool.count_running))
+            
+            time.sleep(main_loop_interval)
             
     except KeyboardInterrupt:
         print('\nmain caught KeyboardInterrupt')
