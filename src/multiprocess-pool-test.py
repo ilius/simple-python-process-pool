@@ -24,14 +24,15 @@ def my_process_func(proc_index, name, iterations, sleep_interval):
         
     print('{0} says "Good-bye"'.format(name))
 
-def main(initial_processes=10,
-         chance_to_add=3,
+def main(max_running_processes=3,
+         initial_processes=20,
+         chance_to_add=5,
          main_loop_interval=2,
          max_child_iterations=10,
          max_child_loop_interval=5):
     
     # Initialize pool
-    pool = ProcessPool(max_running_procs=2)
+    pool = ProcessPool(max_running_procs=max_running_processes)
     
     # Assign some work to the pool
     names = ['Bob', 'Jane', 'Jeremy', 'Nancy', 'Susan', 'Aaron', 'Toby', 'Tom',
@@ -50,7 +51,7 @@ def main(initial_processes=10,
                 'proc_index': index,
                 'name': name,
                 'iterations': random.choice(range(max_child_iterations)),
-                'sleep_interval': random.choice([round(x * 0.1, 1) for x in range(2, interval_range_top, 2)])
+                'sleep_interval': random.choice([round(x * 0.1, 1) for x in range(2, interval_range_top, 5)])
             })
         
     start_time = time.time()
@@ -91,9 +92,36 @@ def main(initial_processes=10,
     except KeyboardInterrupt:
         print('\nmain caught KeyboardInterrupt')
         
-    pool.close()
+    pool.close()    
     pool.join()
 
+def main2():
+    
+    def _return_tuple(a='abc', b='def', c='ghi'):
+        return (a, b, c)
+    
+    def _on_proc_complete(a):
+        print('_on_proc_complete got: {0}'.format(a))
+    
+    pool = ProcessPool()
+    pool.apply_async(range, args=(0, 101, 20), callback=_on_proc_complete)
+    pool.apply_async(_return_tuple, kwargs={ 'a': 123, 'b': 456, 'c': 789 }, callback=_on_proc_complete)
+    pool.wait()
+    
+    pool.close()
+    pool.join()
+    
+def main3():
+    try:
+        pool = ProcessPool()
+        pool.close()
+        pool.apply_async(lambda x: None)
+        pool.join()
+    except AssertionError:
+        print('Handled expected exception in main3')
+
 if __name__ == '__main__':
-    main()
+    main(initial_processes=10, max_child_iterations=5)
+    main2()
+    main3()
     

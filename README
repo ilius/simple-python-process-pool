@@ -1,0 +1,7 @@
+I was trying to use multiprocessing.Pool in a project recently, and couple
+things were giving me problems, most notably that it hangs if the user presses
+Ctrl+C.  Here's a homegrown implementation of a process queue that should
+handle KeyboardInterrupt gracefully.
+
+It also doesn't allow pending processes to start after the pool is "closed".
+This may or may not be what you want.
