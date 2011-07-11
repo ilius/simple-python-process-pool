@@ -1,52 +1,45 @@
 #!/usr/bin/env python
 
-import sys
 import time
-#import multiprocessing
 from pprint import pprint
+import random
 
-from setproctitle import setproctitle
+from lib.processpool import ProcessPool
 
-class Pool(object):
-    
-    def __init__(self):
-        self.__queue = None
-    
-    def apply_async(self, func, args):
-        pprint(args)
-    
-    def close(self):
-        pass
-    
-    def join(self):
-        pass
-
-def my_process_func(proc_index):
+def my_process_func(proc_index, name):
     try:
-        setproctitle('mp-pool-test-{0}'.format(proc_index))
-        print('Inside my_process_func ({0})'.format(proc_index))
-        for i in range(10):
+        print('Inside my_process_func {0}'.format(proc_index))
+        for i in range(5):
             time.sleep(2)
-            print('my_process_func ({0}) looping'.format(proc_index))
-        print('Leaving my_process_func ({1})'.format(proc_index))
-        sys.stdout.flush()
+            print('{0} says "Hi!"'.format(name))
+        
     except KeyboardInterrupt:
-        pass
+        print('{0} says "I see KeyboardInterrupt!"'.format(name))
+            
+    print('{0} says "Good-bye"'.format(name))
 
 def main():
     
     # Initialize pool
-    #pool = multiprocessing.Pool(processes=1, maxtasksperchild=1)
-    pool = Pool()
+    pool = ProcessPool()
     
     # Assign some work to the pool
+    names = ['Bob', 'Jane', 'Jeremy', 'Nancy', 'Susan', 'Aaron', 'Toby', 'Tom']
     for i in range(10):
-        pool.apply_async(func=my_process_func, args=(i,))
+        pool.apply_async(func=my_process_func, args=(i, random.choice(names)))
         
     try:
         while True:
             time.sleep(2)
-            #print('main looping {0}'.format(time.time()))
+            
+            print("""\
+  main looping -- {0}
+    processes queued: {1}
+    process running?: {2}""".format(
+                time.time(),
+                pool.count_pending,
+                pool.count_running))
+            
     except KeyboardInterrupt:
         print('\nmain caught KeyboardInterrupt')
         
@@ -54,6 +47,5 @@ def main():
     pool.join()
 
 if __name__ == '__main__':
-    setproctitle('mp-pool-test')
     main()
     
