@@ -6,9 +6,10 @@ import sys
 
 class ProcessPool(object):
     
-    def __init__(self, max_running_procs=1, check_interval=1):
+    def __init__(self, max_running_procs=1, check_interval=1, always_finish=False):
         self.__max_running_procs = max_running_procs
         self.__check_interval = check_interval
+        self.__always_finish = always_finish
         self.__closed = False
         self.__pending = deque()
         self.__running = []
@@ -21,11 +22,13 @@ class ProcessPool(object):
             [self.__running.remove(i) for i in self.__running if not i.is_alive()]
             self.__try_start()
         
-        if not self.__closed:
+        if not self.is_closed:
             # Restart timer
             Timer(self.__check_interval, self.__manage).start()
     
     def apply_async(self, func, name=None, args=tuple(), kwargs={}):
+        assert not self.is_closed
+            
         with self.__pending_lock:
             self.__pending.append({ 'target': func, 'name': name, 'args': args, 'kwargs': kwargs })
             
@@ -52,6 +55,14 @@ class ProcessPool(object):
             pass
     
     @property
+    def is_closed(self):
+        return self.__closed
+    
+    @property
+    def always_finish(self):
+        return self.__always_finish
+    
+    @property
     def is_full(self):
         with self.__pending_lock:
             return self.count_running >= self.__max_running_procs
@@ -72,7 +83,7 @@ class ProcessPool(object):
             return len(self.__running)
     
     def __try_start(self):
-        if self.__closed:
+        if self.is_closed and not self.always_finish:
             return
         
         with self.__pending_lock:
