@@ -119,9 +119,23 @@ def main3():
         pool.join()
     except AssertionError:
         print('Handled expected exception in main3')
+        
+        
+def main4():
+    def _sleep(index):
+        print('{0} sleeping'.format(index))
+        time.sleep(2)
+        
+    pool = ProcessPool(max_running_procs=2, always_finish=True)
+    for i in range(10):
+        pool.apply_async(func=_sleep, args=(i,))
+
+    pool.close()
+    pool.join()
 
 if __name__ == '__main__':
-    main(initial_processes=10, max_child_iterations=5)
-    main2()
-    main3()
+    main()
+    #main2()
+    #main3()
+    #main4()
     

@@ -64,7 +64,7 @@ class ProcessPool(object):
         assert not self.is_closed
             
         with self.__pending_lock:
-            self.__pending.append({
+            self.__pending.appendleft({
                 'target': func,
                 'name': name,
                 'args': args,
@@ -83,11 +83,22 @@ class ProcessPool(object):
     
     def join(self):
         """
-        Join the current running process
+        Join the current running process.
+        
+        If the pool is was always_finish is True, this function will block
+        until all of the pending processes have run
         """
         try:
-            with self.__running_lock:
-                for i in self.__running: i['process'].join()
+            while True:
+                with self.__running_lock:
+                    for i in self.__running: i['process'].join()
+                    
+                if not self.always_finish or not self.has_pending_processes:
+                    break
+                
+                self.__manage()
+                time.sleep(1)
+                
         except KeyboardInterrupt:
             # User probably got impatient and pressed Ctrl+C again
             pass
