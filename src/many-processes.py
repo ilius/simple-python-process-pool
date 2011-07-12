@@ -95,47 +95,6 @@ def main(max_running_processes=3,
     pool.close()    
     pool.join()
 
-def main2():
-    
-    def _return_tuple(a='abc', b='def', c='ghi'):
-        return (a, b, c)
-    
-    def _on_proc_complete(a):
-        print('_on_proc_complete got: {0}'.format(a))
-    
-    pool = ProcessPool()
-    pool.apply_async(range, args=(0, 101, 20), callback=_on_proc_complete)
-    pool.apply_async(_return_tuple, kwargs={ 'a': 123, 'b': 456, 'c': 789 }, callback=_on_proc_complete)
-    pool.wait()
-    
-    pool.close()
-    pool.join()
-    
-def main3():
-    try:
-        pool = ProcessPool()
-        pool.close()
-        pool.apply_async(lambda x: None)
-        pool.join()
-    except AssertionError:
-        print('Handled expected exception in main3')
-        
-        
-def main4():
-    def _sleep(index):
-        print('{0} sleeping'.format(index))
-        time.sleep(2)
-        
-    pool = ProcessPool(max_running_procs=2, always_finish=True)
-    for i in range(10):
-        pool.apply_async(func=_sleep, args=(i,))
-
-    pool.close()
-    pool.join()
-
 if __name__ == '__main__':
     main()
-    #main2()
-    #main3()
-    #main4()
     
