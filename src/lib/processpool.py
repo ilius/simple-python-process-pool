@@ -12,10 +12,18 @@ class ProcessPool(object):
         self.__always_finish = always_finish
         self.__closed = False
         self.__pending = deque()
-        self.__running = []
+        self.__running = {}
         self.__pending_lock = RLock()
         self.__running_lock = RLock()
         Timer(self.__check_interval, self.__manage).start()
+    
+    def is_running(self, name):
+        try:
+            procInfo = self.__running[name]
+        except KeyError:
+            return False
+        else:
+            return procInfo['process'].is_alive()
     
     @property
     def is_closed(self):
@@ -47,20 +55,20 @@ class ProcessPool(object):
             
     def __manage(self):
         with self.__running_lock:
-            for_removal = [i for i in self.__running if not i['process'].is_alive()]
-            for i in for_removal:
-                if i['callback']:
-                    result = i['queue'].get()
-                    i['callback'](result)
-                    
-                self.__running.remove(i)
+            for name, info in self.__running.items():
+                if info['process'].is_alive():
+                    continue
+                if info['callback']:
+                    info['callback'](info['queue'].get())
+                del self.__running[name]
+            
             self.__try_start()
         
         if not self.is_closed:
             # Restart timer
             Timer(self.__check_interval, self.__manage).start()
     
-    def apply_async(self, func, name=None, args=tuple(), kwargs={}, callback=None):
+    def apply_async(self, func, name, args=tuple(), kwargs={}, callback=None):
         assert not self.is_closed
             
         with self.__pending_lock:
@@ -87,7 +95,7 @@ class ProcessPool(object):
         """
         try:
             with self.__running_lock:
-                for i in self.__running: i['process'].join()
+                for i in self.__running.values(): i['process'].join()
         except KeyboardInterrupt:
             # User probably got impatient and pressed Ctrl+C again
             pass
@@ -122,13 +130,13 @@ class ProcessPool(object):
                         args=next['args'],
                         kwargs=next['kwargs'])
                     
-                    if not next['name'] is None:
-                        p.name = next['name']
+                    p.name = next['name']
                     
-                    self.__running.append({
+                    self.__running[next['name']] = {
+                        'name': next['name'],
                         'process': p,
                         'queue': q,
-                        'callback': next['callback']
-                    })
+                        'callback': next['callback'],
+                    }
                     p.start()
                     
